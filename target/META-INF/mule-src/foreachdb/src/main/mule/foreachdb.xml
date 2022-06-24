@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="920fedab-3b48-43c2-b96c-2945388add7d" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="d50678dd-a168-4345-bbf6-99c3bdacec77" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="hiyabtsion" database="humanresource_finance" />
+	</db:config>
+	<flow name="foreachdbFlow" doc:id="13c8b231-2434-4c8d-8eaf-e4993f7ac947" >
+		<http:listener doc:name="Listener" doc:id="234146cf-24a0-4315-b660-56f112f943a0" config-ref="HTTP_Listener_config" path="/foreach"/>
+		<logger level="INFO" doc:name="Logger" doc:id="c54be119-ddfb-4efe-9aa6-e4d7344d5fd3" message="#[payload]"/>
+		<db:select doc:name="Select" doc:id="1da8fbb7-b436-4873-b11e-191376cfcc51" config-ref="Database_Config">
+			<db:sql ><![CDATA[SELECT * FROM hremployeeinfo]]></db:sql>
+		</db:select>
+		<foreach doc:name="For Each" doc:id="12b069ad-836e-4010-87cc-a6a22fd10341" collection="#[payload]">
+			<logger level="INFO" doc:name="Logger" doc:id="db816d4d-170d-4991-b67b-47a6fc930282" message="foreachStart :[#[payload]"/>
+			<db:select doc:name="Select" doc:id="d29d237b-b70c-4089-b59c-18423f9c34b8" config-ref="Database_Config">
+				<db:sql ><![CDATA[SELECT  * FROM empfinancedata where id=:id]]></db:sql>
+				<db:input-parameters ><![CDATA[#[{
+	id:payload.id
+}]]]></db:input-parameters>
+			</db:select>
+			<ee:transform doc:name="Transform Message" doc:id="02ea638f-6a66-4d2b-888e-af6f8fdb4113" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+
+payload[0]]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<logger level="INFO" doc:name="Logger" doc:id="82c648c4-6dbb-4e23-b835-b1a9ae1b60e9" message="endforeach[#[payload]"/>
+			<db:insert doc:name="Insert" doc:id="5ade28a1-1cd1-4cbf-ad46-04da74a065d9" config-ref="Database_Config">
+				<db:sql><![CDATA[insert into hrallsalary(id,salary,email)values(:id,:salary,:email)]]></db:sql>
+				<db:input-parameters><![CDATA[#[{
+	id:payload.id,
+	salary:payload.salary,
+	email:payload.email
+}]]]></db:input-parameters>
+			</db:insert>
+		</foreach>
+		<ee:transform doc:name="Transform Message" doc:id="f36727a2-4d10-42e7-8d33-6a1f1d2ff626" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+"message":"data inserted"
+
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
